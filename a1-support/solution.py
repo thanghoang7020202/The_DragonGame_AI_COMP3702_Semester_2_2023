@@ -45,11 +45,11 @@ class Solver:
         container = [ContainerEntry(self.game_env.get_init_state(), [], 0)]
         heapq.heapify(container)
         visited = set()
-        visited.add(container[0].state)
         while container:
             Entry = heapq.heappop(container)
-            #print(Entry.state)   
-            #interate through successors (ContainerEntries) and add to container (Priority Queue)
+            if Entry.state in visited:
+                continue
+            visited.add(Entry.state)
             for action in GameEnv.ACTIONS:
                 success, persistent_state = self.game_env.perform_action(Entry.state, action)
                 if success and persistent_state not in visited and not self.game_env.is_game_over(persistent_state):
@@ -57,8 +57,6 @@ class Solver:
                         return Entry.path + [action]
                     node =  ContainerEntry(persistent_state, Entry.path + [action], Entry.cost + self.game_env.ACTION_COST[action])
                     heapq.heappush(container, node)
-                    visited.add(persistent_state)
-            #container = sorted(container, key=lambda x: x.cost)
         return []
 
     # === A* Search ====================================================================================================
@@ -87,7 +85,7 @@ class Solver:
         :return a real number h(n)
         """
         
-        return abs(self.game_env.exit_row - state.row) + abs(self.game_env.exit_col - state.col)
+        return (abs(self.game_env.exit_row - state.row) + abs(self.game_env.exit_col - state.col))
         #
         #
         # TODO: Implement your heuristic function for A* search here. Note that your heuristic can be tested on
@@ -107,16 +105,17 @@ class Solver:
         container = [ContainerEntry(self.game_env.get_init_state(), [], 0)]
         heapq.heapify(container)
         visited = set()
-        visited.add(container[0].state)
         while container:
             Entry = heapq.heappop(container)
-
+            if Entry.state in visited:
+                continue
+            visited.add(Entry.state)
             for action in GameEnv.ACTIONS:
                 success, persistent_state = self.game_env.perform_action(Entry.state, action)
                 if success and persistent_state not in visited and not self.game_env.is_game_over(persistent_state):
                     if self.game_env.is_solved(persistent_state):
                         return Entry.path + [action]
-                    node =  ContainerEntry(persistent_state, Entry.path + [action], Entry.cost + self.game_env.ACTION_COST[action] + self.compute_heuristic(persistent_state) - self.compute_heuristic(Entry.state))
+                    node =  ContainerEntry(persistent_state, Entry.path + [action], Entry.cost + self.game_env.ACTION_COST[action] \
+                                           + self.compute_heuristic(persistent_state) - self.compute_heuristic(Entry.state))
                     heapq.heappush(container, node)
-                    visited.add(persistent_state)
         return []
