@@ -84,18 +84,23 @@ class Solver:
         :param state: given state (GameState object)
         :return a real number h(n)
         """
-        
-        return (abs(self.game_env.exit_row - state.row) + abs(self.game_env.exit_col - state.col))
-        #
-        #
-        # TODO: Implement your heuristic function for A* search here. Note that your heuristic can be tested on
-        #  gradescope even if you have not yet implemented search_a_star.
-        #
-        # You should call this method from your search_a_star method (e.g. every time you need to compute a heuristic
-        # value for a state).
-        #
-
-        pass
+        if 0 in state.gem_status:
+            # get the index of the first uncollected gem
+            gem = state.gem_status.index(0)
+            # get position to the gem
+            gem_pos = self.game_env.gem_positions[gem]
+            if gem_pos[0] > state.row: # target (gem, goal) is below the current state
+                # compute Euclidean distance
+                return ((state.row - gem_pos[0]) ** 2 + (state.col - gem_pos[1]) ** 2) ** 0.5
+            else:
+                # compute Manhattan distance
+                return (abs(state.row - gem_pos[0]) + abs(state.col - gem_pos[1]))
+        # if all gems are collected, compute distance to the goal
+        else: 
+            if self.game_env.exit_row > state.row:
+                return ((state.row - self.game_env.exit_row) ** 2 + (state.col - self.game_env.exit_col) ** 2) ** 0.5
+            else:
+                return (abs(state.row - self.game_env.exit_row) + abs(state.col - self.game_env.exit_col))
 
     def search_a_star(self):
         """
