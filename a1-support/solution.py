@@ -31,7 +31,7 @@ class ContainerEntryAStar:
         self.heuristic_cost = heuristic_cost + cost
     
     def __lt__(self, other):
-        return self.heuristic_cost < other.heuristic_cost
+        return self.heuristic_cost + self.cost < other.heuristic_cost + other.cost
         
 class Solver:
 
@@ -104,11 +104,14 @@ class Solver:
         Compute a heuristic value h(n) for the given state.
         :param state: given state (GameState object)
         :return a real number h(n)
-        """
+        
         if self.game_env.exit_row > state.row:
-            return ((state.row - self.game_env.exit_row) ** 2 + (state.col - self.game_env.exit_col) ** 2) ** 0.5
+            return (((state.row - self.game_env.exit_row) ** 2 + (state.col - self.game_env.exit_col) ** 2) ** 0.5)
         else:
             return (abs(state.row - self.game_env.exit_row) + abs(state.col - self.game_env.exit_col))
+        """
+        n_gems = state.gem_status.count(0)
+        return (n_gems / len(state.gem_status) ) * 0.1
         
 
     def search_a_star(self):
