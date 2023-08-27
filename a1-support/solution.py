@@ -31,7 +31,7 @@ class ContainerEntryAStar:
         self.heuristic_cost = heuristic_cost + cost
     
     def __lt__(self, other):
-        return self.heuristic_cost + self.cost < other.heuristic_cost + other.cost
+        return self.heuristic_cost < other.heuristic_cost
 
 class GemDistance:
     def __init__(self, distance, gem_pos):
@@ -39,7 +39,8 @@ class GemDistance:
         self.distance = distance
     
     def __lt__(self, other):
-        return self.distance < other.distance   
+        return self.distance < other.distance 
+ 
 class Solver:
 
     def __init__(self, game_env):
@@ -79,7 +80,7 @@ class Solver:
     # === A* Search ====================================================================================================
     def preprocess_heuristic(self):
         """
-        Perform pre-processing (e.g. pre-computing repeatedly used values) necessary for your heuristic,
+        Perform pre-processing (e.g. pre-computing repeatedly used values) necessary for your heuristic,      
         """
 
         #
@@ -91,8 +92,6 @@ class Solver:
         # the beginning of your search).
         #
         #
-
-
         pass
 
     def distance(self, pre_pos, row, col):
@@ -159,7 +158,7 @@ class Solver:
             cost += self.distance(pre_pos, self.game_env.exit_row, self.game_env.exit_col)
         else: # no gem left
             cost = self.distance(pre_pos, self.game_env.exit_row, self.game_env.exit_col)
-        return cost
+        return ((1- 1/(cost+1)) * 0.13)
 
 
 
