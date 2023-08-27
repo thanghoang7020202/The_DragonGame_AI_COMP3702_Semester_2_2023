@@ -31,8 +31,16 @@ class ContainerEntryAStar:
         self.heuristic_cost = heuristic_cost + cost
     
     def __lt__(self, other):
-        return self.heuristic_cost + self.cost < other.heuristic_cost + other.cost
-        
+        return self.heuristic_cost < other.heuristic_cost
+
+class GemDistance:
+    def __init__(self, distance, gem_pos):
+        self.gem_pos = gem_pos
+        self.distance = distance
+    
+    def __lt__(self, other):
+        return self.distance < other.distance 
+ 
 class Solver:
 
     def __init__(self, game_env):
@@ -72,7 +80,7 @@ class Solver:
     # === A* Search ====================================================================================================
     def preprocess_heuristic(self):
         """
-        Perform pre-processing (e.g. pre-computing repeatedly used values) necessary for your heuristic,
+        Perform pre-processing (e.g. pre-computing repeatedly used values) necessary for your heuristic,      
         """
 
         #
@@ -84,35 +92,75 @@ class Solver:
         # the beginning of your search).
         #
         #
-
-
         pass
 
-    def gem_distance(self, state):
-        gem = state.gem_status.index(0)
-        # get position to the gem
-        gem_pos = self.game_env.gem_positions[gem]
-        if gem_pos[0] > state.row: # target (gem, goal) is below the current state
-            # compute Euclidean distance
-            return ((state.row - gem_pos[0]) ** 2 + (state.col - gem_pos[1]) ** 2) ** 0.5
-        else:
-            # compute Manhattan distance
-            return (abs(state.row - gem_pos[0]) + abs(state.col - gem_pos[1]))
-        
+    def distance(self, pre_pos, row, col):
+        # target (gem, goal) is right below the current state
+        if row > pre_pos[0]:
+            glide_costs = [
+                self.game_env.ACTION_COST[GameEnv.GLIDE_LEFT_1],
+                self.game_env.ACTION_COST[GameEnv.GLIDE_LEFT_2],
+                self.game_env.ACTION_COST[GameEnv.GLIDE_LEFT_3]
+            ]
+            if col == pre_pos[1]:
+                row_diff = row - pre_pos[0]
+                third, remainder = divmod(row_diff, 3)
+                second, first = divmod(remainder, 2)
+                return  self.game_env.ACTION_COST[GameEnv.DROP_3] * third \
+                    + self.game_env.ACTION_COST[GameEnv.DROP_2] * second \
+                        + self.game_env.ACTION_COST[GameEnv.DROP_1] * first 
+            else:   
+                row_diff = row - pre_pos[0]
+                col_diff = abs(pre_pos[1] - col)
+                col_third, col_remainder = divmod(col_diff, 3)
+                row_diff -= col_third
+                if row_diff == 0:
+                    return col_diff * self.game_env.ACTION_COST[GameEnv.WALK_LEFT] + col_third * glide_costs[2]
+                
+                col_second, col_first = divmod(col_remainder, 2)
+                row_diff -= col_second
+                if row_diff == 0:
+                    return col_diff * self.game_env.ACTION_COST[GameEnv.WALK_LEFT] + col_third * glide_costs[2] \
+                        + col_second * glide_costs[1] 
+                
+                row_diff -= col_first
+                if row_diff == 0:
+                    return col_third * glide_costs[2] \
+                        + col_second * glide_costs[1] + col_first * glide_costs[0]
+                
+                row_third, row_remainder = divmod(row_diff, 3)
+                row_second, row_first = divmod(row_remainder, 2)
+                return (col_third * glide_costs[2] + col_second * glide_costs[1] + col_first * glide_costs[0] 
+                        + row_third * self.game_env.ACTION_COST[GameEnv.DROP_3] + row_second * self.game_env.ACTION_COST[GameEnv.DROP_2] \
+                              + row_first * self.game_env.ACTION_COST[GameEnv.DROP_1])  
+        else: # target (gem, goal) is above the current state
+            row_diff = abs(pre_pos[0] - row)
+            col_diff = abs(pre_pos[1] - col)
+            return row_diff * self.game_env.ACTION_COST[GameEnv.JUMP] \
+                + col_diff * self.game_env.ACTION_COST[GameEnv.WALK_LEFT] # both walk left and right have the same cost
+
     def compute_heuristic(self, state):
-        """
-        Compute a heuristic value h(n) for the given state.
-        :param state: given state (GameState object)
-        :return a real number h(n)
-        
-        if self.game_env.exit_row > state.row:
-            return (((state.row - self.game_env.exit_row) ** 2 + (state.col - self.game_env.exit_col) ** 2) ** 0.5)
-        else:
-            return (abs(state.row - self.game_env.exit_row) + abs(state.col - self.game_env.exit_col))
-        """
-        n_gems = state.gem_status.count(0)
-        return (n_gems / len(state.gem_status) ) * 0.1
-        
+        cost = 0
+        pre_pos = (state.row, state.col)
+        if 0 in state.gem_status:
+            # list of distance to each gem
+            gem_distance = []
+            heapq.heapify(gem_distance)
+            n = len(state.gem_status)
+            for gem in range (n):
+                if state.gem_status[gem] == 0:
+                    gem_pos = self.game_env.gem_positions[gem]
+                    heapq.heappush(gem_distance,GemDistance(abs(state.row - gem_pos[0]) + abs(state.col - gem_pos[1]), gem_pos))
+            while(gem_distance):
+                node = heapq.heappop(gem_distance)
+                cost += self.distance(pre_pos, node.gem_pos[0], node.gem_pos[1])
+                pre_pos = node.gem_pos
+            cost += self.distance(pre_pos, self.game_env.exit_row, self.game_env.exit_col)
+        else: # no gem left
+            cost = self.distance(pre_pos, self.game_env.exit_row, self.game_env.exit_col)
+        return ((1- 1/(cost+1)) * 0.13)
+
+
 
     def search_a_star(self):
         """
@@ -132,10 +180,7 @@ class Solver:
                 if success and persistent_state not in visited and not self.game_env.is_game_over(persistent_state):
                     if self.game_env.is_solved(persistent_state):
                         return Entry.path + [action]
-                    if 0 in persistent_state.gem_status:
-                        heuristic_cost = self.gem_distance(persistent_state)
-                    else:
-                        heuristic_cost = self.compute_heuristic(persistent_state)
+                    heuristic_cost = self.compute_heuristic(persistent_state)
                     node =  ContainerEntryAStar(persistent_state, Entry.path + [action], \
                                                 Entry.cost + self.game_env.ACTION_COST[action], \
                                                 heuristic_cost)
